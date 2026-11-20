@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數學方陣謎題 - 乘法與加法互動學習單</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts (Noto Sans TC 與高清晰度幾何數字字型 Plus Jakarta Sans) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- 引入 html2canvas 與 jsPDF 用於直接下載高品質 A4 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f1f5f9;
+        }
+        
+        /* 統一高清晰度數字字體 (確保數字 4 等字形清楚易辨識) */
+        .math-num, .handwriting-num {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        /* 隱藏數字輸入框的上下箭頭 */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* A4 紙張比例容器，確保匯出 PDF 時排版完美不跑版 */
+        .a4-sheet {
+            width: 100%;
+            max-width: 820px;
+            background: white;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 針對列印與 PDF 匯出的微調 */
+        @media print {
+            body {
+                background: white;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .a4-sheet {
+                box-shadow: none;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        }
+
+        /* 平板觸控虛擬數字鍵盤動畫 */
+        .numpad-slide-up {
+            animation: slideUp 0.2s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="pb-16">
+    <!-- 頂部控制列 (與下方學習單等寬置中對齊) -->
+    <header class="no-print sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
+        <div class="max-w-[820px] mx-auto px-4 py-3 flex flex-col items-center justify-center gap-3">
+            <!-- 標題與模式選擇 -->
+            <div class="flex items-center justify-center gap-3 text-center sm:text-left">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-sm">
+                    <i class="fa-solid fa-table-cells text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-800 leading-tight">數學方陣謎題生成器</h1>
+                    <p class="text-xs text-slate-500">支援 2×2 乘法與 3×3 加法雙模式及 PDF 匯出</p>
+                </div>
+            </div>
+
+            <!-- 控制按鈕群組 (置中排列) -->
+            <div class="flex flex-wrap items-center justify-center gap-2 w-full">
+                <!-- 遊戲模式切換 (2x2 乘法 vs 3x3 加法) -->
+                <select id="gameModeSelect" onchange="handleGameModeChange()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-sm font-bold py-2 px-3 rounded-xl border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer">
+                    <option value="mul2x2" selected>模式一：2×2 乘法方陣</option>
+                    <option value="add3x3">模式二：3×3 加法方陣</option>
+                </select>
+
+                <!-- 題目難度選擇 (依模式動態更新選項) -->
+                <select id="difficultySelect" onchange="generateNewWorksheet()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium py-2 px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer">
+                    <option value="standard" selected>標準模式 (數字 1~9，同行/列不重複)</option>
+                    <option value="easy">基礎入門 (數字 1~6，九九乘法基礎)</option>
+                    <option value="hard">進階挑戰 (數字 2~12，大數乘積)</option>
+                </select>
+
+                <!-- 重新出題按鈕 -->
+                <button onclick="generateNewWorksheet()" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-bold py-2 px-3.5 rounded-xl shadow-sm transition cursor-pointer">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>產生新題目</span>
+                </button>
+
+                <!-- 檢查答案按鈕 -->
+                <button onclick="checkUserAnswers()" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-sm font-bold py-2 px-3.5 rounded-xl shadow-sm transition cursor-pointer">
+                    <i class="fa-solid fa-check-double"></i>
+                    <span>批改對答案</span>
+                </button>
+
+                <!-- 顯示/隱藏解答切換按鈕 -->
+                <button id="toggleAnswerBtn" onclick="toggleShowAnswers()" class="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-sm font-bold py-2 px-3.5 rounded-xl shadow-sm transition cursor-pointer">
+                    <i class="fa-solid fa-eye"></i>
+                    <span>顯示答案</span>
+                </button>
+
+                <!-- 下拉式 PDF 下載選單 -->
+                <div class="relative inline-block text-left">
+                    <button id="pdfMenuBtn" onclick="togglePdfDropdown()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white text-sm font-bold py-2 px-3.5 rounded-xl shadow-sm transition cursor-pointer">
+                        <i class="fa-solid fa-file-pdf text-rose-400"></i>
+                        <span>下載 PDF</span>
+                        <i class="fa-solid fa-chevron-down text-xs ml-0.5"></i>
+                    </button>
+
+                    <!-- 下載選項面板 -->
+                    <div id="pdfDropdown" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-64 rounded-2xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 divide-y divide-slate-100 z-50 overflow-hidden">
+                        <div class="p-1.5">
+                            <button onclick="downloadPDF('questions')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl font-medium transition cursor-pointer">
+                                <i class="fa-regular fa-file-lines text-indigo-500 w-4"></i>
+                                <div>
+                                    <div>下載「題目卷」PDF</div>
+                                    <div class="text-[11px] text-slate-400">空白方格，適合印出測驗</div>
+                                </div>
+                            </button>
+                            <button onclick="downloadPDF('answers')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl font-medium transition mt-1 cursor-pointer">
+                                <i class="fa-solid fa-file-circle-check text-emerald-500 w-4"></i>
+                                <div>
+                                    <div>下載「解答卷」PDF</div>
+                                    <div class="text-[11px] text-slate-400">包含完整答案，供教師批改</div>
+                                </div>
+                            </button>
+                            <button onclick="downloadPDF('both')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-700 rounded-xl font-medium transition mt-1 cursor-pointer">
+                                <i class="fa-solid fa-copy text-amber-500 w-4"></i>
+                                <div>
+                                    <div>下載「題目 + 解答」PDF</div>
+                                    <div class="text-[11px] text-slate-400">第1頁為題目卷，第2頁為解答卷</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 提示訊息框 (替代 alert) -->
+    <div id="toastMessage" class="no-print fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 hidden">
+        <div class="bg-slate-800 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-medium border border-slate-700">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-indigo-400 text-lg"></i>
+            <span id="toastText">訊息內容</span>
+        </div>
+    </div>
+
+    <!-- 平板與觸控裝置友善提示條 -->
+    <div class="no-print max-w-[820px] mx-auto mt-4 px-4 sm:px-0 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                <i class="fa-solid fa-tablet-screen-button text-indigo-500"></i>
+                點擊方格可直接輸入或使用螢幕數字鍵盤
+            </span>
+            <button onclick="clearUserInputs()" class="text-slate-500 hover:text-rose-600 underline px-2 py-1 transition cursor-pointer">
+                清空所有作答
+            </button>
+        </div>
+        <div id="scoreBadge" class="hidden font-bold text-sm px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+            得分：0 / 11 題
+        </div>
+    </div>
+
+    <!-- 主要學習單區域 (將被完整轉為 PDF) -->
+    <main class="mt-3 px-2 sm:px-4">
+        <div id="worksheetContainer" class="a4-sheet p-5 sm:p-8 rounded-2xl sm:rounded-none">
+            
+            <!-- 外框線設計，致敬原圖的粗黑框與頂部標題嵌合設計 -->
+            <div class="relative border-[3px] border-slate-900 rounded-sm pt-6 pb-5 px-4 sm:px-6 mt-4">
+                
+                <!-- 頂部浮動主標題 (覆蓋在框線上) -->
+                <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white px-4 whitespace-nowrap">
+                    <h2 class="text-2xl sm:text-3xl font-black tracking-wider text-slate-900 text-center">
+                        趣味數學挑戰
+                    </h2>
+                </div>
+
+                <!-- 副標題 -->
+                <div class="text-center mb-3">
+                    <div class="text-lg sm:text-xl font-extrabold tracking-widest text-slate-800">
+                        MATH WORKSHEET
+                    </div>
+                </div>
+
+                <!-- 學生資訊欄 (姓名、班級、日期) -->
+                <div class="border-[1.5px] border-slate-800 rounded-md px-3 py-2 mb-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-sm font-bold text-slate-800">
+                    <div class="flex items-center gap-1.5 w-full sm:w-5/12">
+                        <span class="whitespace-nowrap">姓名：</span>
+                        <input type="text" placeholder="" class="w-full border-b border-slate-800 focus:outline-none focus:border-indigo-600 bg-transparent px-1 font-normal text-slate-700">
+                    </div>
+                    <div class="flex items-center gap-1.5 w-5/12 sm:w-3/12">
+                        <span class="whitespace-nowrap">班級：</span>
+                        <input type="text" placeholder="" class="w-full border-b border-slate-800 focus:outline-none focus:border-indigo-600 bg-transparent px-1 font-normal text-slate-700">
+                    </div>
+                    <div class="flex items-center gap-1.5 w-6/12 sm:w-4/12">
+                        <span class="whitespace-nowrap">日期：</span>
+                        <input type="text" id="worksheetDate" class="w-full border-b border-slate-800 focus:outline-none focus:border-indigo-600 bg-transparent px-1 font-normal text-slate-700">
+                    </div>
+                </div>
+
+                <!-- 遊戲標題與規則說明 -->
+                <div class="text-center mb-4">
+                    <h3 id="worksheetMainTitle" class="text-xl sm:text-2xl font-black text-slate-900 tracking-wide mb-1">
+                        乘法方陣謎題 (MULTIPLICATION SQUARE)
+                    </h3>
+                    <p id="instructionText" class="text-xs sm:text-[13px] font-bold text-slate-700 leading-relaxed max-w-2xl mx-auto">
+                        遊戲規則：請在每個空白的 2×2 方格中填入正確的數字（因數），使每一橫列（右方）與每一直行（下方）的數字相乘積皆正確。每題同一列或同一行請使用不重複的數字 1 到 9，第一格為示範題。
+                    </p>
+                </div>
+
+                <!-- 題目網格區 (2x2模式為12格；3x3模式為9格) -->
+                <div id="puzzlesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- 動態生成題目卡片 -->
+                </div>
+
+                <!-- 頁尾版權/狀態標記 -->
+                <div class="mt-4 pt-2 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-400 font-medium">
+                    <span id="footerModeTag">乘法邏輯與因數分解訓練學習單</span>
+                    <span id="sheetVersionTag">題目卷</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 平板專用懸浮觸控數字鍵盤 (點擊方格時自動彈出，方便學生用手指或觸控筆點擊) -->
+    <div id="virtualNumpad" class="no-print fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md text-white p-3 shadow-2xl border-t border-slate-700 z-50 hidden numpad-slide-up">
+        <div class="max-w-lg mx-auto">
+            <div class="flex items-center justify-between mb-2 px-1">
+                <span class="text-xs text-slate-300 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-keyboard text-indigo-400"></i>
+                    <span id="activeCellLabel">正在輸入：題目 a - 左上格</span>
+                </span>
+                <button onclick="closeVirtualNumpad()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1 rounded-lg transition">
+                    關閉鍵盤 <i class="fa-solid fa-xmark ml-1"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-6 gap-1.5 sm:gap-2">
+                <button onclick="numpadInput(1)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">1</button>
+                <button onclick="numpadInput(2)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">2</button>
+                <button onclick="numpadInput(3)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">3</button>
+                <button onclick="numpadInput(4)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">4</button>
+                <button onclick="numpadInput(5)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">5</button>
+                <button onclick="numpadBackspace()" class="bg-rose-900/80 hover:bg-rose-700 text-rose-200 py-2.5 rounded-xl font-bold text-base flex items-center justify-center transition" title="清除">
+                    <i class="fa-solid fa-delete-left"></i>
+                </button>
+                
+                <button onclick="numpadInput(6)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">6</button>
+                <button onclick="numpadInput(7)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">7</button>
+                <button onclick="numpadInput(8)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">8</button>
+                <button onclick="numpadInput(9)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">9</button>
+                <button id="numpadZeroBtn" onclick="numpadInput(0)" class="bg-slate-800 hover:bg-indigo-600 active:bg-indigo-500 py-2.5 rounded-xl font-bold text-lg math-num shadow-xs transition">0</button>
+                <button onclick="numpadNextCell()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1 transition">
+                    <span>下一格</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局狀態變數
+        let gameMode = 'mul2x2';      // 'mul2x2' (2x2乘法) 或 'add3x3' (3x3加法)
+        let puzzlesData = [];         // 儲存目前生成的題目資料
+        let isShowingAnswers = false; // 是否處於顯示答案狀態
+        let activeInputElement = null; // 目前聚焦的輸入框 (供虛擬鍵盤使用)
+        const mulLabels = ['EXAMPLE', 'a.', 'b.', 'c.', 'd.', 'e.', 'f.', 'g.', 'h.', 'i.', 'j.', 'k.'];
+        const addLabels = ['1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.'];
+        const cellNames2x2 = ['左上格', '右上格', '左下格', '右下格'];
+        const cellNames3x3 = ['左上格', '上中格', '右上格', '左中格', '正中格', '右中格', '左下格', '下中格', '右下格'];
+
+        // 初始化頁面
+        window.onload = function() {
+            // 自動填入今日日期 (格式：YYYY / MM / DD)
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('worksheetDate').value = `${yyyy} / ${mm} / ${dd}`;
+
+            // 生成初始題目
+            generateNewWorksheet();
+
+            // 點擊頁面其他空白處關閉 PDF 下拉選單
+            document.addEventListener('click', function(event) {
+                const dropdown = document.getElementById('pdfDropdown');
+                const btn = document.getElementById('pdfMenuBtn');
+                if (!dropdown.contains(event.target) && !btn.contains(event.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        };
+
+        // 切換遊戲模式 (2x2 乘法 / 3x3 加法)
+        function handleGameModeChange() {
+            gameMode = document.getElementById('gameModeSelect').value;
+            const diffSelect = document.getElementById('difficultySelect');
+
+            if (gameMode === 'mul2x2') {
+                diffSelect.innerHTML = `
+                    <option value="standard" selected>標準模式 (數字 1~9，同行/列不重複)</option>
+                    <option value="easy">基礎入門 (數字 1~6，九九乘法基礎)</option>
+                    <option value="hard">進階挑戰 (數字 2~12，大數乘積)</option>
+                `;
+            } else {
+                diffSelect.innerHTML = `
+                    <option value="standard" selected>標準模式 (每題提示 3 格)</option>
+                    <option value="easy">基礎入門 (每題提示 4 格)</option>
+                    <option value="hard">進階挑戰 (每題提示 2 格)</option>
+                `;
+            }
+
+            generateNewWorksheet();
+        }
+
+        // 顯示友善提示訊息 (取代 alert)
+        // 核心演算法 1：生成單一 2x2 乘法方陣謎題
+        function createSingleMulPuzzle(minNum, maxNum, isExample = false) {
+            // 如果是第一題例題且為標準模式，預設使用與原圖相同的經典例題 [2, 8, 5, 3]
+            if (isExample && minNum === 1 && maxNum === 9) {
+                return {
+                    grid: [2, 8, 5, 3],
+                    rowTargets: [16, 15],
+                    colTargets: [10, 24]
+                };
+            }
+
+            let a, b, c, d;
+            let attempts = 0;
+            while (attempts < 100) {
+                a = getRandomInt(minNum, maxNum);
+                b = getRandomInt(minNum, maxNum);
+                c = getRandomInt(minNum, maxNum);
+                d = getRandomInt(minNum, maxNum);
+
+                // 確保同行與同列數字不重複，增加推理樂趣
+                if (a !== b && c !== d && a !== c && b !== d) {
+                    const onesCount = [a, b, c, d].filter(n => n === 1).length;
+                    if (onesCount <= 1) {
+                        break;
+                    }
+                }
+                attempts++;
+            }
+
+            return {
+                grid: [a, b, c, d],
+                rowTargets: [a * b, c * d],
+                colTargets: [a * c, b * d]
+            };
+        }
+
+        // 核心演算法 2：生成單一 3x3 加法方陣謎題 (填入 1~9 不重複數字)
+        function createSingleAddPuzzle(clueCount, isExample = false) {
+            // 第 1 題示範題還原圖片經典排列 [4,2,9, 7,5,8, 3,1,6]
+            if (isExample) {
+                return {
+                    grid: [4, 2, 9, 7, 5, 8, 3, 1, 6],
+                    clues: [true, true, true, true, true, true, true, true, true],
+                    rowTargets: [15, 20, 10],
+                    colTargets: [14, 8, 23]
+                };
+            }
+
+            // 洗牌產生 1~9 的不重複排列
+            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (let i = nums.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [nums[i], nums[j]] = [nums[j], nums[i]];
+            }
+
+            const rowTargets = [
+                nums[0] + nums[1] + nums[2],
+                nums[3] + nums[4] + nums[5],
+                nums[6] + nums[7] + nums[8]
+            ];
+            const colTargets = [
+                nums[0] + nums[3] + nums[6],
+                nums[1] + nums[4] + nums[7],
+                nums[2] + nums[5] + nums[8]
+            ];
+
+            // 挑選 clueCount 個提示位置，盡量分散在不同列，讓解題更有線索
+            const clues = Array(9).fill(false);
+            const indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            for (let k = 0; k < clueCount; k++) {
+                clues[indices[k]] = true;
+            }
+
+            return {
+                grid: nums,
+                clues: clues,
+                rowTargets: rowTargets,
+                colTargets: colTargets
+            };
+        }
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 生成整份學習單
+        function generateNewWorksheet() {
+            const difficulty = document.getElementById('difficultySelect').value;
+
+            // 重置狀態
+            isShowingAnswers = false;
+            updateAnswerToggleButton();
+            document.getElementById('scoreBadge').classList.add('hidden');
+            closeVirtualNumpad();
+            puzzlesData = [];
+
+            if (gameMode === 'mul2x2') {
+                // --- 模式一：2x2 乘法方陣 ---
+                let minNum = 1, maxNum = 9;
+                let ruleText = '遊戲規則：請在每個空白的 2×2 方格中填入正確的數字（因數），使每一橫列（右方）與每一直行（下方）的數字相乘積皆正確。每題同一列或同一行請使用不重複的數字 1 到 9，第一格為示範題。';
+
+                if (difficulty === 'easy') {
+                    minNum = 1;
+                    maxNum = 6;
+                    ruleText = '遊戲規則（基礎入門）：請在空白方格中填入 1 到 6 的數字，使右方與下方的乘積皆正確。同一列或同一行數字不重複，第一格為示範題。';
+                } else if (difficulty === 'hard') {
+                    minNum = 2;
+                    maxNum = 12;
+                    ruleText = '遊戲規則（進階挑戰）：請在空白方格中填入 2 到 12 的數字，使右方與下方的乘積皆正確。同一列或同一行數字不重複，第一格為示範題。';
+                }
+
+                document.getElementById('worksheetMainTitle').textContent = '乘法方陣謎題 (MULTIPLICATION SQUARE)';
+                document.getElementById('instructionText').textContent = ruleText;
+                document.getElementById('footerModeTag').textContent = '2×2 乘法邏輯與因數分解訓練學習單';
+
+                const seenSignatures = new Set();
+                for (let i = 0; i < 12; i++) {
+                    let puzzle;
+                    let tries = 0;
+                    do {
+                        puzzle = createSingleMulPuzzle(minNum, maxNum, i === 0);
+                        const sig = puzzle.rowTargets.join(',') + '|' + puzzle.colTargets.join(',');
+                        if (!seenSignatures.has(sig) || tries > 30) {
+                            seenSignatures.add(sig);
+                            break;
+                        }
+                        tries++;
+                    } while (true);
+
+                    puzzlesData.push({
+                        id: i,
+                        mode: 'mul2x2',
+                        label: mulLabels[i],
+                        isExample: i === 0,
+                        ...puzzle
+                    });
+                }
+            } else {
+                // --- 模式二：3x3 加法方陣 ---
+                let clueCount = 3;
+                let ruleText = '遊戲規則：請將數字 1 到 9 填入每個 3×3 九宮格的空格中（每題數字 1~9 皆不重複），使每一橫列（右方）與每一直行（下方）的數字總和皆正確。第 1 題為示範題。';
+
+                if (difficulty === 'easy') {
+                    clueCount = 4;
+                    ruleText = '遊戲規則（基礎入門）：請將數字 1 到 9 填入九宮格（每題不重複），使右方與下方的總和皆正確。每題提供 4 個提示數字，第 1 題為示範題。';
+                } else if (difficulty === 'hard') {
+                    clueCount = 2;
+                    ruleText = '遊戲規則（進階挑戰）：請將數字 1 到 9 填入九宮格（每題不重複），使右方與下方的總和皆正確。每題僅提供 2 個提示數字，第 1 題為示範題。';
+                }
+
+                document.getElementById('worksheetMainTitle').textContent = '加法方陣謎題 (MATH SQUARE PUZZLES)';
+                document.getElementById('instructionText').textContent = ruleText;
+                document.getElementById('footerModeTag').textContent = '3×3 加法推理與數感訓練學習單';
+
+                for (let i = 0; i < 9; i++) {
+                    const puzzle = createSingleAddPuzzle(clueCount, i === 0);
+                    puzzlesData.push({
+                        id: i,
+                        mode: 'add3x3',
+                        label: addLabels[i],
+                        isExample: i === 0,
+                        ...puzzle
+                    });
+                }
+            }
+
+            renderPuzzles();
+        }
+
+        // 渲染所有題目卡片到畫面上
+        function renderPuzzles() {
+            const gridContainer = document.getElementById('puzzlesGrid');
+            gridContainer.innerHTML = '';
+
+            if (gameMode === 'mul2x2') {
+                gridContainer.className = 'grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4';
+                renderMul2x2Puzzles(gridContainer);
+            } else {
+                gridContainer.className = 'grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4';
+                renderAdd3x3Puzzles(gridContainer);
+            }
+        }
+
+        // 渲染模式一：2x2 乘法方陣
+        function renderMul2x2Puzzles(gridContainer) {
+            puzzlesData.forEach((puzzle, pIndex) => {
+                const card = document.createElement('div');
+                card.className = 'border border-slate-300 rounded-xl p-2.5 sm:p-3 bg-white flex flex-col items-center justify-center relative transition-colors';
+                card.id = `puzzle-card-${pIndex}`;
+
+                if (puzzle.isExample) {
+                    card.innerHTML = `
+                        <div class="w-full text-center mb-1">
+                            <span class="text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">示範題 EXAMPLE:</span>
+                        </div>
+                        <div class="inline-grid grid-cols-[auto_auto] items-center">
+                            <div class="grid grid-cols-2 border-[2.5px] border-slate-900 bg-slate-50/50">
+                                <div class="w-11 h-11 sm:w-12 sm:h-12 border-r-[2px] border-b-[2px] border-slate-900 flex items-center justify-center math-num text-xl sm:text-2xl font-extrabold text-slate-900">${puzzle.grid[0]}</div>
+                                <div class="w-11 h-11 sm:w-12 sm:h-12 border-b-[2px] border-slate-900 flex items-center justify-center math-num text-xl sm:text-2xl font-extrabold text-slate-900">${puzzle.grid[1]}</div>
+                                <div class="w-11 h-11 sm:w-12 sm:h-12 border-r-[2px] border-slate-900 flex items-center justify-center math-num text-xl sm:text-2xl font-extrabold text-slate-900">${puzzle.grid[2]}</div>
+                                <div class="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center math-num text-xl sm:text-2xl font-extrabold text-slate-900">${puzzle.grid[3]}</div>
+                            </div>
+                            <div class="flex flex-col justify-around h-full pl-2 sm:pl-2.5 math-num font-bold text-base sm:text-lg text-slate-900">
+                                <div class="h-11 sm:h-12 flex items-center">${puzzle.rowTargets[0]}</div>
+                                <div class="h-11 sm:h-12 flex items-center">${puzzle.rowTargets[1]}</div>
+                            </div>
+                            <div class="grid grid-cols-2 pt-1.5 text-center math-num font-bold text-base sm:text-lg text-slate-900">
+                                <div>${puzzle.colTargets[0]}</div>
+                                <div>${puzzle.colTargets[1]}</div>
+                            </div>
+                            <div></div>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="w-full flex items-start justify-center relative">
+                            <span class="absolute left-0.5 -top-0.5 math-num font-bold text-base sm:text-lg text-slate-900">${puzzle.label}</span>
+                            <div class="inline-grid grid-cols-[auto_auto] items-center mt-1">
+                                <div class="grid grid-cols-2 border-[2.5px] border-slate-900 bg-white">
+                                    ${[0, 1, 2, 3].map(cellIdx => {
+                                        const borderClasses = 
+                                            cellIdx === 0 ? 'border-r-[2px] border-b-[2px] border-slate-900' :
+                                            cellIdx === 1 ? 'border-b-[2px] border-slate-900' :
+                                            cellIdx === 2 ? 'border-r-[2px] border-slate-900' : '';
+                                        return `
+                                            <div class="w-11 h-11 sm:w-12 sm:h-12 ${borderClasses} relative flex items-center justify-center">
+                                                <input type="number" 
+                                                    inputmode="none"
+                                                    data-puzzle="${pIndex}" 
+                                                    data-cell="${cellIdx}"
+                                                    onfocus="handleCellFocus(this)"
+                                                    oninput="handleCellInput(this)"
+                                                    class="puzzle-input w-full h-full text-center math-num font-bold text-xl sm:text-2xl text-indigo-700 bg-transparent focus:bg-indigo-50/80 focus:outline-none transition-colors cursor-pointer"
+                                                    aria-label="題目 ${puzzle.label} ${cellNames2x2[cellIdx]}">
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                <div class="flex flex-col justify-around h-full pl-2 sm:pl-2.5 math-num font-bold text-base sm:text-lg text-slate-900">
+                                    <div class="h-11 sm:h-12 flex items-center">${puzzle.rowTargets[0]}</div>
+                                    <div class="h-11 sm:h-12 flex items-center">${puzzle.rowTargets[1]}</div>
+                                </div>
+                                <div class="grid grid-cols-2 pt-1.5 text-center math-num font-bold text-base sm:text-lg text-slate-900">
+                                    <div>${puzzle.colTargets[0]}</div>
+                                    <div>${puzzle.colTargets[1]}</div>
+                                </div>
+                                <div></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                gridContainer.appendChild(card);
+            });
+        }
+
+        // 渲染模式二：3x3 加法方陣 (高度還原第二張圖片排版：左上題號 1.~9.，第1題下方標示 Example)
+        function renderAdd3x3Puzzles(gridContainer) {
+            puzzlesData.forEach((puzzle, pIndex) => {
+                const card = document.createElement('div');
+                card.className = 'border border-slate-300 rounded-xl p-2.5 sm:p-3 bg-white flex flex-col items-center justify-center relative transition-colors';
+                card.id = `puzzle-card-${pIndex}`;
+
+                const cellsHtml = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(cellIdx => {
+                    const row = Math.floor(cellIdx / 3);
+                    const col = cellIdx % 3;
+                    const borderRight = col < 2 ? 'border-r-[1.8px] border-slate-900' : '';
+                    const borderBottom = row < 2 ? 'border-b-[1.8px] border-slate-900' : '';
+
+                    if (puzzle.isExample || puzzle.clues[cellIdx]) {
+                        // 示範題或題目預先給予的固定提示數字 (粗體黑色，不可修改)
+                        return `
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 ${borderRight} ${borderBottom} flex items-center justify-center math-num font-extrabold text-xl sm:text-2xl text-slate-900 bg-slate-50/40 select-none">
+                                ${puzzle.grid[cellIdx]}
+                            </div>
+                        `;
+                    } else {
+                        // 空白待填格
+                        return `
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 ${borderRight} ${borderBottom} relative flex items-center justify-center">
+                                <input type="number" 
+                                    inputmode="none"
+                                    data-puzzle="${pIndex}" 
+                                    data-cell="${cellIdx}"
+                                    onfocus="handleCellFocus(this)"
+                                    oninput="handleCellInput(this)"
+                                    class="puzzle-input w-full h-full text-center math-num font-bold text-xl sm:text-2xl text-indigo-700 bg-transparent focus:bg-indigo-50/80 focus:outline-none transition-colors cursor-pointer"
+                                    aria-label="題目 ${puzzle.label} ${cellNames3x3[cellIdx]}">
+                            </div>
+                        `;
+                    }
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="w-full flex items-start justify-center relative">
+                        <!-- 左上角題號 1. ~ 9. -->
+                        <span class="absolute left-0.5 -top-0.5 math-num font-bold text-base sm:text-lg text-slate-900">${puzzle.label}</span>
+                        
+                        <div class="inline-grid grid-cols-[auto_auto] items-center mt-0.5">
+                            <!-- 3x3 九宮格本體 -->
+                            <div class="grid grid-cols-3 border-[2.5px] border-slate-900 bg-white">
+                                ${cellsHtml}
+                            </div>
+
+                            <!-- 右側三列總和 -->
+                            <div class="flex flex-col justify-around h-full pl-2 math-num font-bold text-base sm:text-lg text-slate-900">
+                                <div class="h-10 sm:h-11 flex items-center">${puzzle.rowTargets[0]}</div>
+                                <div class="h-10 sm:h-11 flex items-center">${puzzle.rowTargets[1]}</div>
+                                <div class="h-10 sm:h-11 flex items-center">${puzzle.rowTargets[2]}</div>
+                            </div>
+
+                            <!-- 下方三行總和 -->
+                            <div class="grid grid-cols-3 pt-1 text-center math-num font-bold text-base sm:text-lg text-slate-900">
+                                <div>${puzzle.colTargets[0]}</div>
+                                <div>${puzzle.colTargets[1]}</div>
+                                <div>${puzzle.colTargets[2]}</div>
+                            </div>
+                            <div></div>
+                        </div>
+                    </div>
+                    ${puzzle.isExample ? '<div class="text-xs sm:text-sm font-black tracking-wide text-slate-900 mt-0.5">示範 Example</div>' : ''}
+                `;
+
+                gridContainer.appendChild(card);
+            });
+        }
+
+        // 處理方格聚焦 (開啟平板虛擬鍵盤並顯示位置)
+        function handleCellFocus(inputEl) {
+            if (isShowingAnswers) return;
+            activeInputElement = inputEl;
+            
+            document.querySelectorAll('.puzzle-input').forEach(el => {
+                el.parentElement.classList.remove('ring-2', 'ring-indigo-500', 'z-10');
+            });
+            inputEl.parentElement.classList.add('ring-2', 'ring-indigo-500', 'z-10');
+
+            const pIdx = parseInt(inputEl.dataset.puzzle);
+            const cIdx = parseInt(inputEl.dataset.cell);
+            const difficulty = document.getElementById('difficultySelect').value;
+            const cellLabel = gameMode === 'mul2x2' ? cellNames2x2[cIdx] : cellNames3x3[cIdx];
+            
+            document.getElementById('activeCellLabel').textContent = `正在輸入：題目 ${puzzlesData[pIdx].label} - ${cellLabel}`;
+            
+            // 僅在 2x2 進階挑戰(2~12)顯示數字 0 按鈕，其餘模式隱藏 0 避免誤按
+            const zeroBtn = document.getElementById('numpadZeroBtn');
+            if (gameMode === 'mul2x2' && difficulty === 'hard') {
+                zeroBtn.classList.remove('opacity-30', 'pointer-events-none');
+            } else {
+                zeroBtn.classList.add('opacity-30', 'pointer-events-none');
+            }
+
+            document.getElementById('virtualNumpad').classList.remove('hidden');
+        }
+
+        // 處理實體鍵盤直接輸入
+        function handleCellInput(inputEl) {
+            inputEl.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-rose-600', 'bg-rose-50');
+            inputEl.classList.add('text-indigo-700');
+
+            const difficulty = document.getElementById('difficultySelect').value;
+            const allowTwoDigits = (gameMode === 'mul2x2' && difficulty === 'hard');
+            let val = inputEl.value;
+
+            if (!allowTwoDigits) {
+                if (val.length > 1) {
+                    inputEl.value = val.slice(-1);
+                }
+                if (inputEl.value.length === 1 && inputEl.value !== '0') {
+                    numpadNextCell();
+                } else if (inputEl.value === '0') {
+                    inputEl.value = '';
+                }
+            } else {
+                if (val.length > 2) {
+                    inputEl.value = val.slice(0, 2);
+                }
+            }
+        }
+
+        // 虛擬鍵盤輸入數字
+        function numpadInput(num) {
+            if (!activeInputElement || isShowingAnswers) return;
+            const difficulty = document.getElementById('difficultySelect').value;
+            const allowTwoDigits = (gameMode === 'mul2x2' && difficulty === 'hard');
+
+            activeInputElement.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-rose-600', 'bg-rose-50');
+            activeInputElement.classList.add('text-indigo-700');
+
+            if (!allowTwoDigits) {
+                if (num === 0) return;
+                activeInputElement.value = num;
+                numpadNextCell();
+            } else {
+                const current = activeInputElement.value;
+                if (current === '1' && (num === 0 || num === 1 || num === 2)) {
+                    activeInputElement.value = '1' + num;
+                    numpadNextCell();
+                } else {
+                    activeInputElement.value = num;
+                    if (num >= 2) {
+                        numpadNextCell();
+                    }
+                }
+            }
+        }
+
+        // 虛擬鍵盤退格清除
+        function numpadBackspace() {
+            if (!activeInputElement || isShowingAnswers) return;
+            activeInputElement.value = '';
+            activeInputElement.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-rose-600', 'bg-rose-50');
+        }
+
+        // 自動跳至下一個空格
+        function numpadNextCell() {
+            if (!activeInputElement) return;
+            const inputs = Array.from(document.querySelectorAll('.puzzle-input'));
+            const currentIndex = inputs.indexOf(activeInputElement);
+            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                inputs[currentIndex + 1].focus();
+            } else {
+                closeVirtualNumpad();
+            }
+        }
+
+        // 關閉虛擬數字鍵盤
+        function closeVirtualNumpad() {
+            document.getElementById('virtualNumpad').classList.add('hidden');
+            document.querySelectorAll('.puzzle-input').forEach(el => {
+                el.parentElement.classList.remove('ring-2', 'ring-indigo-500', 'z-10');
+            });
+            activeInputElement = null;
+        }
+
+        // 清空所有學生作答
+        function clearUserInputs() {
+            if (isShowingAnswers) {
+                isShowingAnswers = false;
+                updateAnswerToggleButton();
+                document.getElementById('sheetVersionTag').textContent = '題目卷';
+            }
+            document.querySelectorAll('.puzzle-input').forEach(inp => {
+                inp.value = '';
+                inp.dataset.userBackup = '';
+                inp.readOnly = false;
+                inp.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-emerald-700', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70', 'font-extrabold');
+                inp.classList.add('text-indigo-700', 'font-bold', 'math-num');
+            });
+            for (let pIndex = 1; pIndex < puzzlesData.length; pIndex++) {
+                const card = document.getElementById(`puzzle-card-${pIndex}`);
+                if (card) {
+                    card.classList.remove('border-emerald-400', 'bg-emerald-50/30', 'border-rose-300');
+                }
+            }
+            document.getElementById('scoreBadge').classList.add('hidden');
+            closeVirtualNumpad();
+            showToast('已清空所有作答內容', 'info');
+        }
+
+        // 切換 PDF 下拉選單顯示
+        function togglePdfDropdown() {
+            const dropdown = document.getElementById('pdfDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // 顯示友善提示訊息 (取代 alert)
+        let toastTimer = null;
+        function showToast(message, type = 'info') {
+            const toastEl = document.getElementById('toastMessage');
+            const textEl = document.getElementById('toastText');
+            const iconEl = document.getElementById('toastIcon');
+
+            textEl.textContent = message;
+            iconEl.className = 'text-lg ';
+            if (type === 'success') {
+                iconEl.className += 'fa-solid fa-circle-check text-emerald-400';
+            } else if (type === 'warning') {
+                iconEl.className += 'fa-solid fa-triangle-exclamation text-amber-400';
+            } else {
+                iconEl.className += 'fa-solid fa-circle-info text-indigo-400';
+            }
+
+            toastEl.classList.remove('hidden');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastEl.classList.add('hidden');
+            }, 3200);
+        }
+
+        // 批改對答案功能 (完整支援 2x2 乘法與 3x3 加法雙模式驗證)
+        function checkUserAnswers() {
+            if (isShowingAnswers) {
+                showToast('目前正在檢視標準解答，請先隱藏答案再進行批改', 'warning');
+                return;
+            }
+            closeVirtualNumpad();
+
+            let correctCount = 0;
+            let answeredCount = 0;
+            const totalQuestions = puzzlesData.length - 1; // 扣掉第 0 題示範題
+
+            for (let pIndex = 1; pIndex < puzzlesData.length; pIndex++) {
+                const puzzle = puzzlesData[pIndex];
+                const inputs = Array.from(document.querySelectorAll(`.puzzle-input[data-puzzle="${pIndex}"]`));
+                const card = document.getElementById(`puzzle-card-${pIndex}`);
+
+                // 檢查該題所有空格是否都已填寫
+                const isComplete = inputs.every(inp => inp.value !== '' && !isNaN(parseInt(inp.value)));
+                if (!isComplete) {
+                    card.classList.remove('border-emerald-400', 'bg-emerald-50/30', 'border-rose-300');
+                    inputs.forEach(inp => {
+                        if (inp.value === '') {
+                            inp.classList.add('bg-amber-50/70');
+                        }
+                    });
+                    continue;
+                }
+
+                answeredCount++;
+                let isCorrect = false;
+
+                if (puzzle.mode === 'mul2x2') {
+                    const vals = inputs.map(inp => parseInt(inp.value));
+                    const [u0, u1, u2, u3] = vals;
+                    const row1Ok = (u0 * u1 === puzzle.rowTargets[0]) && (u0 !== u1);
+                    const row2Ok = (u2 * u3 === puzzle.rowTargets[1]) && (u2 !== u3);
+                    const col1Ok = (u0 * u2 === puzzle.colTargets[0]) && (u0 !== u2);
+                    const col2Ok = (u1 * u3 === puzzle.colTargets[1]) && (u1 !== u3);
+                    isCorrect = row1Ok && row2Ok && col1Ok && col2Ok;
+                } else {
+                    // 3x3 加法方陣：組合固定提示數字與學生填入數字，檢查 1~9 不重複及三列三行總和
+                    const fullGrid = [...puzzle.grid];
+                    inputs.forEach(inp => {
+                        const cIdx = parseInt(inp.dataset.cell);
+                        fullGrid[cIdx] = parseInt(inp.value);
+                    });
+
+                    const uniqueSet = new Set(fullGrid);
+                    const all1To9 = fullGrid.every(n => n >= 1 && n <= 9) && uniqueSet.size === 9;
+                    const rowsOk =
+                        (fullGrid[0] + fullGrid[1] + fullGrid[2] === puzzle.rowTargets[0]) &&
+                        (fullGrid[3] + fullGrid[4] + fullGrid[5] === puzzle.rowTargets[1]) &&
+                        (fullGrid[6] + fullGrid[7] + fullGrid[8] === puzzle.rowTargets[2]);
+                    const colsOk =
+                        (fullGrid[0] + fullGrid[3] + fullGrid[6] === puzzle.colTargets[0]) &&
+                        (fullGrid[1] + fullGrid[4] + fullGrid[7] === puzzle.colTargets[1]) &&
+                        (fullGrid[2] + fullGrid[5] + fullGrid[8] === puzzle.colTargets[2]);
+
+                    isCorrect = all1To9 && rowsOk && colsOk;
+                }
+
+                if (isCorrect) {
+                    correctCount++;
+                    card.classList.remove('border-rose-300');
+                    card.classList.add('border-emerald-400', 'bg-emerald-50/30');
+                    inputs.forEach(inp => {
+                        inp.classList.remove('text-indigo-700', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70');
+                        inp.classList.add('text-emerald-600', 'bg-emerald-50');
+                    });
+                } else {
+                    card.classList.remove('border-emerald-400', 'bg-emerald-50/30');
+                    card.classList.add('border-rose-300');
+                    inputs.forEach(inp => {
+                        inp.classList.remove('text-indigo-700', 'text-emerald-600', 'bg-emerald-50', 'bg-amber-50/70');
+                        inp.classList.add('text-rose-600', 'bg-rose-50');
+                    });
+                }
+            }
+
+            const scoreBadge = document.getElementById('scoreBadge');
+            scoreBadge.textContent = `得分：${correctCount} / ${totalQuestions} 題`;
+            scoreBadge.classList.remove('hidden');
+
+            if (answeredCount === 0) {
+                showToast('請先在方格中填入數字再按批改喔！', 'warning');
+            } else if (correctCount === totalQuestions) {
+                showToast(`太棒了！${totalQuestions} 題全部答對！滿分過關！`, 'success');
+            } else {
+                const hintMsg = gameMode === 'mul2x2' 
+                    ? `批改完成！答對 ${correctCount} 題，紅色標記處請再檢查乘積或是否有重複數字。`
+                    : `批改完成！答對 ${correctCount} 題，紅色標記處請再檢查總和或 1~9 是否有重複數字。`;
+                showToast(hintMsg, 'info');
+            }
+        }
+
+        // 切換「顯示答案 / 隱藏答案」
+        function toggleShowAnswers() {
+            isShowingAnswers = !isShowingAnswers;
+            closeVirtualNumpad();
+            applyAnswerState(isShowingAnswers);
+            updateAnswerToggleButton();
+        }
+
+        function applyAnswerState(show) {
+            const versionTag = document.getElementById('sheetVersionTag');
+            versionTag.textContent = show ? '解答卷 (含參考答案)' : '題目卷';
+
+            for (let pIndex = 1; pIndex < puzzlesData.length; pIndex++) {
+                const puzzle = puzzlesData[pIndex];
+                const inputs = Array.from(document.querySelectorAll(`.puzzle-input[data-puzzle="${pIndex}"]`));
+                const card = document.getElementById(`puzzle-card-${pIndex}`);
+
+                card.classList.remove('border-emerald-400', 'bg-emerald-50/30', 'border-rose-300');
+
+                inputs.forEach(inp => {
+                    const cIdx = parseInt(inp.dataset.cell);
+                    if (show) {
+                        if (!inp.dataset.pdfCleared) {
+                            inp.dataset.userBackup = inp.value;
+                        }
+                        inp.value = puzzle.grid[cIdx];
+                        inp.readOnly = true;
+                        inp.classList.remove('text-indigo-700', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70', 'font-bold');
+                        inp.classList.add('text-emerald-700', 'font-extrabold');
+                    } else {
+                        inp.value = inp.dataset.userBackup || '';
+                        delete inp.dataset.pdfCleared;
+                        inp.readOnly = false;
+                        inp.classList.remove('text-emerald-700', 'text-emerald-600', 'bg-emerald-50', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70', 'font-extrabold');
+                        inp.classList.add('text-indigo-700', 'font-bold');
+                    }
+                });
+            }
+        }
+
+        function updateAnswerToggleButton() {
+            const btn = document.getElementById('toggleAnswerBtn');
+            if (isShowingAnswers) {
+                btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i><span>隱藏答案</span>';
+                btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                btn.classList.add('bg-slate-600', 'hover:bg-slate-700');
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-eye"></i><span>顯示答案</span>';
+                btn.classList.remove('bg-slate-600', 'hover:bg-slate-700');
+                btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+            }
+        }
+
+        // 輔助函式：將學習單暫時設為純空白題目卷狀態 (供匯出 PDF 使用)
+        function setBlankQuestionStateForPDF(previousAnswerState) {
+            document.getElementById('sheetVersionTag').textContent = '題目卷';
+            for (let pIndex = 1; pIndex < puzzlesData.length; pIndex++) {
+                const inputs = Array.from(document.querySelectorAll(`.puzzle-input[data-puzzle="${pIndex}"]`));
+                const card = document.getElementById(`puzzle-card-${pIndex}`);
+                card.classList.remove('border-emerald-400', 'bg-emerald-50/30', 'border-rose-300');
+                inputs.forEach(inp => {
+                    if (!previousAnswerState) {
+                        inp.dataset.userBackup = inp.value;
+                    }
+                    inp.dataset.pdfCleared = 'true';
+                    inp.value = '';
+                    inp.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-emerald-700', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70', 'font-extrabold');
+                    inp.classList.add('text-indigo-700', 'font-bold');
+                });
+            }
+        }
+
+        // 下載 PDF 功能 (mode: 'questions' = 純題目卷, 'answers' = 含答案卷, 'both' = 題目第1頁 + 答案第2頁)
+        async function downloadPDF(mode) {
+            document.getElementById('pdfDropdown').classList.add('hidden');
+            closeVirtualNumpad();
+
+            const previousAnswerState = isShowingAnswers;
+            const element = document.getElementById('worksheetContainer');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const modePrefix = gameMode === 'mul2x2' ? '乘法方陣謎題' : '加法方陣謎題';
+
+            // 將現代 CSS 色彩 (如 oklch/lab/color-mix) 轉為標準 RGB/Hex，避免 html2canvas 解析失敗
+            function normalizeModernColors(clonedDoc) {
+                const colorCtx = document.createElement('canvas').getContext('2d');
+                const toStandardColor = (rawColor) => {
+                    try {
+                        colorCtx.fillStyle = '#000000';
+                        colorCtx.fillStyle = rawColor.trim();
+                        return colorCtx.fillStyle;
+                    } catch (e) {
+                        return '#0f172a';
+                    }
+                };
+
+                clonedDoc.querySelectorAll('style').forEach(styleTag => {
+                    if (styleTag.textContent) {
+                        styleTag.textContent = styleTag.textContent.replace(
+                            /(?:oklch|oklab|lab|lch|color-mix)\([^;{}]+\)/g,
+                            match => toStandardColor(match)
+                        );
+                    }
+                });
+
+                // 將輸入框替換為靜態置中元素，確保 PDF 文字與底線完美對齊不裁切
+                clonedDoc.querySelectorAll('#worksheetContainer input').forEach(inp => {
+                    if (inp.classList.contains('puzzle-input')) {
+                        const cellDiv = clonedDoc.createElement('div');
+                        cellDiv.className = inp.className.replace('puzzle-input', '') + ' flex items-center justify-center';
+                        cellDiv.textContent = inp.value || '';
+                        inp.parentNode.replaceChild(cellDiv, inp);
+                    } else {
+                        const span = clonedDoc.createElement('span');
+                        span.className = 'inline-block w-full border-b border-slate-800 px-1 font-normal text-slate-700 min-h-[1.35rem] leading-tight';
+                        span.textContent = inp.value || '\u00A0';
+                        inp.parentNode.replaceChild(span, inp);
+                    }
+                });
+
+                // 補償 Plus Jakarta Sans 字型在 html2canvas 渲染時的基線偏低問題，將文字包入相對定位層並直接向上平移至方格正中央
+                clonedDoc.querySelectorAll('#puzzlesGrid .flex.items-center').forEach(el => {
+                    if (!el.classList.contains('absolute') && el.children.length === 0 && el.textContent.trim() !== '') {
+                        const text = el.textContent.trim();
+                        const isInsideGridBox = el.closest('.grid.grid-cols-2, .grid.grid-cols-3') !== null;
+                        const span = clonedDoc.createElement('span');
+                        span.style.display = 'inline-block';
+                        span.style.position = 'relative';
+                        span.style.lineHeight = '1';
+                        span.style.top = isInsideGridBox ? '-0.38em' : '-0.28em';
+                        span.textContent = text;
+                        el.textContent = '';
+                        el.appendChild(span);
+                    }
+                });
+            }
+        }
+
+        function updateAnswerToggleButton() {
+            const btn = document.getElementById('toggleAnswerBtn');
+            if (isShowingAnswers) {
+                btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i><span>隱藏答案</span>';
+                btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                btn.classList.add('bg-slate-600', 'hover:bg-slate-700');
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-eye"></i><span>顯示答案</span>';
+                btn.classList.remove('bg-slate-600', 'hover:bg-slate-700');
+                btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+            }
+        }
+
+        // 輔助函式：將學習單暫時設為純空白題目卷狀態 (供匯出 PDF 使用)
+        function setBlankQuestionStateForPDF(previousAnswerState) {
+            document.getElementById('sheetVersionTag').textContent = '題目卷';
+            for (let pIndex = 1; pIndex < puzzlesData.length; pIndex++) {
+                const inputs = Array.from(document.querySelectorAll(`.puzzle-input[data-puzzle="${pIndex}"]`));
+                const card = document.getElementById(`puzzle-card-${pIndex}`);
+                card.classList.remove('border-emerald-400', 'bg-emerald-50/30', 'border-rose-300');
+                inputs.forEach(inp => {
+                    if (!previousAnswerState) {
+                        inp.dataset.userBackup = inp.value;
+                    }
+                    inp.value = '';
+                    inp.classList.remove('text-emerald-600', 'bg-emerald-50', 'text-emerald-700', 'text-rose-600', 'bg-rose-50', 'bg-amber-50/70', 'font-extrabold');
+                    inp.classList.add('text-indigo-700', 'font-bold');
+                });
+            }
+        }
+
+        // 下載 PDF 功能 (mode: 'questions' = 純題目卷, 'answers' = 含答案卷, 'both' = 題目第1頁 + 答案第2頁)
+        async function downloadPDF(mode) {
+            document.getElementById('pdfDropdown').classList.add('hidden');
+            closeVirtualNumpad();
+
+            const previousAnswerState = isShowingAnswers;
+            const element = document.getElementById('worksheetContainer');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const modePrefix = gameMode === 'mul2x2' ? '乘法方陣謎題' : '加法方陣謎題';
+
+            // 將現代 CSS 色彩 (如 oklch/lab/color-mix) 轉為標準 RGB/Hex，避免 html2canvas 解析失敗
+            function normalizeModernColors(clonedDoc) {
+                const colorCtx = document.createElement('canvas').getContext('2d');
+                const toStandardColor = (rawColor) => {
+                    try {
+                        colorCtx.fillStyle = '#000000';
+                        colorCtx.fillStyle = rawColor.trim();
+                        return colorCtx.fillStyle;
+                    } catch (e) {
+                        return '#0f172a';
+                    }
+                };
+
+                clonedDoc.querySelectorAll('style').forEach(styleTag => {
+                    if (styleTag.textContent) {
+                        styleTag.textContent = styleTag.textContent.replace(
+                            /(?:oklch|oklab|lab|lch|color-mix)\([^;{}]+\)/g,
+                            match => toStandardColor(match)
+                        );
+                    }
+                });
+
+                // 將輸入框替換為靜態置中元素，確保 PDF 文字與底線完美對齊不裁切
+                clonedDoc.querySelectorAll('#worksheetContainer input').forEach(inp => {
+                    if (inp.classList.contains('puzzle-input')) {
+                        const cellDiv = clonedDoc.createElement('div');
+                        cellDiv.className = inp.className.replace('puzzle-input', '') + ' flex items-center justify-center';
+                        cellDiv.textContent = inp.value || '';
+                        inp.parentNode.replaceChild(cellDiv, inp);
+                    } else {
+                        const span = clonedDoc.createElement('span');
+                        span.className = 'inline-block w-full border-b border-slate-800 px-1 font-normal text-slate-700 min-h-[1.35rem] leading-tight';
+                        span.textContent = inp.value || '\u00A0';
+                        inp.parentNode.replaceChild(span, inp);
+                    }
+                });
+
+                // 補償 Plus Jakarta Sans 字型在 html2canvas 渲染時的基線偏低問題，透過調整 flex 容器下內距將文字上移至正中央
+                clonedDoc.querySelectorAll('#puzzlesGrid .flex.items-center').forEach(el => {
+                    if (!el.classList.contains('absolute') && el.children.length === 0 && el.textContent.trim() !== '') {
+                        el.style.boxSizing = 'border-box';
+                        el.style.lineHeight = '1';
+                        el.style.paddingBottom = '0.48em';
+                    }
+                });
+            }
+
+            // 輔助函式：將學習單擷取並等比例完整放入單一 A4 頁面（避免微幅超出高度導致多出空白頁）
+            async function addWorksheetPageToPdf(pdfInstance) {
+                // 等待瀏覽器完成 DOM 狀態更新與重繪
+                await new Promise(resolve => setTimeout(resolve, 80));
+
+                const canvas = await window.html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    onclone: (clonedDoc) => {
+                        normalizeModernColors(clonedDoc);
+                    }
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                const pageWidth = pdfInstance.internal.pageSize.getWidth();
+                const pageHeight = pdfInstance.internal.pageSize.getHeight();
+                const margin = 6;
+                const maxW = pageWidth - margin * 2;
+                const maxH = pageHeight - margin * 2;
+
+                let imgWidth = maxW;
+                let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                // 若等比例高度超過單頁可用高度，則依高度等比例縮放並水平置中，確保絕不溢位分頁
+                if (imgHeight > maxH) {
+                    imgHeight = maxH;
+                    imgWidth = (canvas.width * imgHeight) / canvas.height;
+                }
+
+                const offsetX = (pageWidth - imgWidth) / 2;
+                pdfInstance.addImage(imgData, 'JPEG', offsetX, margin, imgWidth, imgHeight);
+            }
+
+            // 移除外陰影與圓角讓 PDF 貼合 A4 邊緣
+            element.classList.remove('shadow-xl', 'rounded-2xl');
+
+            try {
+                const JsPDFClass = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+                if (!JsPDFClass || typeof window.html2canvas !== 'function') {
+                    throw new Error('PDF 相關函式庫尚未載入完成');
+                }
+                const pdf = new JsPDFClass({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+                if (mode === 'both') {
+                    showToast('正在產生「題目 + 解答」雙頁 PDF 檔案...', 'info');
+                    // 第 1 頁：純題目卷
+                    setBlankQuestionStateForPDF(previousAnswerState);
+                    await addWorksheetPageToPdf(pdf);
+
+                    // 第 2 頁：完整解答卷
+                    pdf.addPage();
+                    applyAnswerState(true);
+                    await addWorksheetPageToPdf(pdf);
+
+                    pdf.save(`${modePrefix}_題目與解答_${dateStr}.pdf`);
+                } else if (mode === 'answers') {
+                    showToast('正在產生「含答案」PDF 檔案...', 'info');
+                    applyAnswerState(true);
+                    await addWorksheetPageToPdf(pdf);
+                    pdf.save(`${modePrefix}_解答卷_${dateStr}.pdf`);
+                } else {
+                    showToast('正在產生「純題目」PDF 檔案...', 'info');
+                    setBlankQuestionStateForPDF(previousAnswerState);
+                    await addWorksheetPageToPdf(pdf);
+                    pdf.save(`${modePrefix}_題目卷_${dateStr}.pdf`);
+                }
+
+                showToast('PDF 下載成功！', 'success');
+            } catch (err) {
+                console.error('PDF 生成失敗:', err);
+                showToast('PDF 匯出發生錯誤，請稍後重試或改用瀏覽器列印 (Ctrl+P)', 'warning');
+            } finally {
+                // 還原畫面原本的狀態與學生的作答內容
+                element.classList.add('rounded-2xl');
+                applyAnswerState(previousAnswerState);
+            }
+        }
+    </script>
+</body>
+</html>
